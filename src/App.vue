@@ -35,6 +35,7 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @input="showMatches"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -43,27 +44,16 @@
               />
             </div>
             <div
+              v-if="filteredCoinList.length"
               class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
+                v-for="token in filteredCoinList"
+                :key="token"
+                @click="fastAdd(token)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
+                {{ token }}
               </span>
             </div>
             <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
@@ -187,6 +177,8 @@ export default {
       tickers: [],
       sel: null,
       graph: [],
+      coinList: [],
+      filteredCoinList: [],
     };
   },
 
@@ -229,6 +221,42 @@ export default {
       this.sel = ticker;
       this.graph = [];
     },
+
+    async fetchCoinList() {
+      const f = await fetch(
+        "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+      );
+      const data = await f.json();
+      for (const key in data.Data) {
+        this.coinList.push(data.Data[key]);
+      }
+    },
+
+    showMatches() {
+      this.filteredCoinList = [];
+      for (let i = 0; i < this.coinList.length; i++) {
+        const el = this.coinList[i];
+        if (this.filteredCoinList.length < 4) {
+          if (
+            this.ticker !== "" &&
+            (el["Symbol"].indexOf(this.ticker) > -1 ||
+              el["FullName"].indexOf(this.ticker) > -1)
+          ) {
+            this.filteredCoinList.push(el["Symbol"]);
+          }
+        } else break;
+      }
+    },
+
+    fastAdd(t) {
+      this.ticker = t;
+      this.add();
+      this.filteredCoinList = [];
+    },
+  },
+
+  mounted() {
+    this.fetchCoinList();
   },
 };
 </script>
