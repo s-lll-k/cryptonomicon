@@ -35,7 +35,7 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
-                @input="showMatches"
+                @input="tickerOnInput"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -56,7 +56,9 @@
                 {{ token }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div v-if="tickerIsExisting" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -179,16 +181,30 @@ export default {
       graph: [],
       coinList: [],
       filteredCoinList: [],
+      tickerIsExisting: false,
     };
   },
 
   methods: {
+    tickerOnInput() {
+      this.showMatches();
+      this.tickerIsExisting = false;
+    },
+
+    checkExistingTickers() {
+      if (this.tickers.find((t) => t.name === this.ticker)) {
+        this.tickerIsExisting = true;
+      } else this.tickerIsExisting = false;
+    },
     add() {
+      this.checkExistingTickers();
+      if (this.tickerIsExisting) {
+        return;
+      }
       const currentTicker = {
         name: this.ticker,
         price: "-",
       };
-
       this.tickers.push(currentTicker);
       setInterval(async () => {
         const f = await fetch(
