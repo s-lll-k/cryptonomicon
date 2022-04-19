@@ -35,6 +35,7 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @input="tickerOnInput"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -43,30 +44,21 @@
               />
             </div>
             <div
+              v-if="filteredCoinList.length"
               class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
+                v-for="token in filteredCoinList"
+                :key="token"
+                @click="fastAdd(token)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
+                {{ token }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div v-if="tickerIsExisting" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -93,9 +85,27 @@
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
+        <div>
+          <button
+            @click="page = page - 1"
+            v-if="page > 1"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Назад
+          </button>
+          <button
+            @click="page = page + 1"
+            v-if="hasNextPage"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Вперед
+          </button>
+          <div>Фильтр: <input v-model="filter" /></div>
+        </div>
+        <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t in tickers"
+            v-for="t in filteredTickers()"
             :key="t.name"
             @click="select(t)"
             :class="{
@@ -187,10 +197,26 @@ export default {
       tickers: [],
       sel: null,
       graph: [],
+      coinList: [],
+      filteredCoinList: [],
+      tickerIsExisting: false,
+      page: 1,
+      filter: "",
+      hasNextPage: true,
     };
   },
 
   created() {
+    const windowData = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    );
+
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
     const tickersData = localStorage.getItem("cryptonomicon-list");
 
     if (tickersData) {
@@ -200,8 +226,32 @@ export default {
       });
     }
   },
+  mounted() {
+    this.fetchCoinList();
+  },
 
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6,
+        end = this.page * 6;
+      const filteredTickers = this.tickers.filter((ticker) =>
+        ticker.name.includes(this.filter)
+      );
+
+      this.hasNextPage = filteredTickers.length > end;
+
+      return filteredTickers.slice(start, end);
+    },
+
+    tickerOnInput() {
+      this.showMatches();
+      this.tickerIsExisting = false;
+    },
+    checkExistingTickers() {
+      if (this.tickers.find((t) => t.name === this.ticker)) {
+        this.tickerIsExisting = true;
+      } else this.tickerIsExisting = false;
+    },
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const f = await fetch(
@@ -218,12 +268,17 @@ export default {
     },
 
     add() {
+      this.checkExistingTickers();
+      if (this.tickerIsExisting) {
+        return;
+      }
       const currentTicker = {
         name: this.ticker,
         price: "-",
       };
 
       this.tickers.push(currentTicker);
+      this.filter = "";
 
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
 
@@ -246,6 +301,56 @@ export default {
     select(ticker) {
       this.sel = ticker;
       this.graph = [];
+    },
+
+    async fetchCoinList() {
+      const f = await fetch(
+        "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+      );
+      const data = await f.json();
+      for (const key in data.Data) {
+        this.coinList.push(data.Data[key]);
+      }
+    },
+
+    showMatches() {
+      this.filteredCoinList = [];
+      for (let i = 0; i < this.coinList.length; i++) {
+        const el = this.coinList[i];
+        if (this.filteredCoinList.length < 4) {
+          if (
+            this.ticker !== "" &&
+            (el["Symbol"].indexOf(this.ticker) > -1 ||
+              el["FullName"].indexOf(this.ticker) > -1)
+          ) {
+            this.filteredCoinList.push(el["Symbol"]);
+          }
+        } else break;
+      }
+    },
+
+    fastAdd(t) {
+      this.ticker = t;
+      this.add();
+      this.filteredCoinList = [];
+    },
+  },
+
+  watch: {
+    filter() {
+      this.page = 1;
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
     },
   },
 };
