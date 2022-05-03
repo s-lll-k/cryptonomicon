@@ -110,11 +110,18 @@
             @click="select(t)"
             :class="{
               'border-4': selectedTicker === t,
+              'bg-red-500': !t.subState,
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
-              <dt class="text-sm font-medium text-gray-500 truncate">
+              <dt
+                :class="{
+                  'text-white': !t.subState,
+                  'text-gray-500': t.subState,
+                }"
+                class="text-sm font-medium truncate"
+              >
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
@@ -234,8 +241,8 @@ export default {
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach((ticker) => {
-        subscribeToTicker(ticker.name, (newPrice) =>
-          this.updateTicker(ticker.name, newPrice)
+        subscribeToTicker(ticker.name, (newPrice, sub) =>
+          this.updateTicker(ticker.name, newPrice, sub)
         );
       });
     }
@@ -282,7 +289,7 @@ export default {
   },
 
   methods: {
-    updateTicker(tickerName, price) {
+    updateTicker(tickerName, price, subState) {
       this.tickers
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
@@ -290,6 +297,7 @@ export default {
             this.graph.push(price);
           }
           t.price = price;
+          t.subState = subState;
         });
     },
     tickerOnInput() {
@@ -317,14 +325,17 @@ export default {
       const currentTicker = {
         name: this.ticker,
         price: "-",
+        subState: true,
       };
+
+      subscribeToTicker(currentTicker.name, (newPrice, sub) => {
+        this.updateTicker(currentTicker.name, newPrice, sub);
+      });
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
       this.ticker = "";
-      subscribeToTicker(currentTicker.name, (newPrice) =>
-        this.updateTicker(currentTicker.name, newPrice)
-      );
+      this.filteredCoinList = [];
     },
 
     handleDelete(tickerToRemove) {
