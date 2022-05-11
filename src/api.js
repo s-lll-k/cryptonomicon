@@ -22,7 +22,7 @@ socket.addEventListener("message", (e) => {
     tickersHandlers.get(
       currency ?? (paramArr !== undefined ? paramArr[2] : undefined)
     ) ?? [];
-  console.log(JSON.parse(e.data));
+  // console.log(JSON.parse(e.data));
   if (sub === "INVALID_SUB") {
     // Добавить перевод на биток
     if (paramArr[3] === "USD") {
