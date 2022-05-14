@@ -81,7 +81,6 @@ export default {
       if (!this.$refs.graph) {
         return;
       }
-      console.log(this.$refs.graph.clientWidth, this.maxGraphElements);
       this.maxGraphElements =
         this.$refs.graph.clientWidth / (this.graphColumnWidth * 4);
     },
