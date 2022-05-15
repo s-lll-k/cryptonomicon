@@ -97,6 +97,9 @@ function subscribeToTickerOnWs(ticker, cur) {
 }
 
 function unsubscribeFromTickerOnWs(ticker, cur) {
+  if (cur === "ETH") {
+    tickersCacheForCrossсonversion.delete(ticker);
+  }
   sendToWebSocket({
     action: "SubRemove",
     subs: [`5~CCCAGG~${ticker}~${cur}`],
@@ -110,5 +113,13 @@ export const subscribeToTicker = (ticker, cb) => {
 };
 export const unsubscribeFromTicker = (ticker) => {
   tickersHandlers.delete(ticker);
+  if (tickersCacheForCrossсonversion.has(ticker)) {
+    unsubscribeFromTickerOnWs(ticker, "ETH");
+    if (tickersCacheForCrossсonversion.size === 0) {
+      unsubscribeFromTickerOnWs("ETH", "USD");
+      return;
+    }
+  }
+
   unsubscribeFromTickerOnWs(ticker, "USD");
 };
